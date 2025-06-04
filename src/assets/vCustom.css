@@ -1,0 +1,116 @@
+* {
+  font-size: 12px; /* 調整所有元素的字體大小 */
+}
+
+.v-card {
+  padding: 4px;
+}
+
+.v-row {
+  padding: 0px;
+}
+
+.v-col {
+  padding: 4px;
+}
+
+:deep(.v-input__details) {
+  min-height: 0  !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+:deep(.v-messages ){
+  min-height: 0  !important;
+  height: auto !important;
+}
+
+.table-scroll-card {
+  overflow-x: auto; /* 允許水平滾動 */
+}
+
+.v-data-table {
+  border-collapse: collapse;
+}
+:deep(.v-table th) {
+  padding: 2px !important;
+  user-select: text !important; /* 允許文字被選取 */
+  -webkit-user-select: text !important; /*確保在 WebKit（如 Chrome、Safari）瀏覽器上也能生效*/
+}
+:deep(.v-table td) {
+  padding: 0px !important;
+  border: 1px solid #000000 !important;
+  white-space: nowrap !important;   /* 不換行，讓欄寬跟內容走 */
+  width: auto; 
+}
+
+
+:deep(.v-table td .v-field--appended) {
+  padding: 0px;
+}
+
+:deep(table input) {
+  padding: 0px;
+  width: auto;
+}
+
+:deep(.v-table td .v-field--variant-filled .v-field__outline::before, .v-field--variant-underlined .v-field__outline::before ) {
+  border-width: 0 0 3px; /* v-text-field的邊框寬度 */
+}
+
+/* 嘗試縮小日期輸入框中文字與日曆圖示之間的空白 */
+/* 針對 WebKit 瀏覽器 (Chrome, Safari, 新版 Edge) */
+:deep(.v-table td .v-field__input[type="date"]::-webkit-calendar-picker-indicator) {
+  margin-left: -15px !important; /* 使用負 margin 將圖示向左拉*/
+}
+
+/* 讓 v-text-field 在表格內自動寬度 */
+:deep(.v-table td .v-text-field) {
+  width: auto;
+  vertical-align: middle !important; /* 讓內容垂直置中 */
+}
+:deep(input) {
+  font-size: 12px;
+}
+:deep(.v-table td .v-field__input){
+  padding: 0px !important;
+  width: auto;
+}
+:deep(.v-select__selection-text) {
+  font-size: 12px;
+}
+
+
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.plus-button {
+  font-size: 2rem;
+  padding: 30px 10px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+/* 調試用 - 添加邊框來查看元素範圍 */
+.table-container {
+  border: 2px solid red !important;
+}
+
+.custom-data-table {
+  border: 2px solid blue !important;
+}
+
+:deep(.v-data-table__wrapper) {
+  border: 2px solid green !important;
+}
