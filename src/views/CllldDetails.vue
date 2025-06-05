@@ -4,9 +4,9 @@
       :add="() => setMode('add')"
       :isAddDisabled="isAddDisabled"
       :edit="() => setMode('edit')"
-      :isEditDisabled="true"
+      :isEditDisabled="isEditDisabled"
       :deleteOrder="deleteOrder"
-      :isDeleteOrderDisabled="true"
+      :isDeleteOrderDisabled="isDeleteOrderDisabled"
       :toggleAudit="toggleAudit"
       :isToggleAuditDisabled="isToggleAuditDisabled"
       :exportExcel="exportExcel"
@@ -94,6 +94,7 @@
                   "
                   :error="utils.isFormError(mode, field, form[field.column])"
                   @change="updateMst(field)"
+                  @update:modelValue="field.componentType === 'select' ? updateMst(field) : null"
                 />
               </template>
             </v-col>
@@ -120,6 +121,7 @@
           @update:spQuery[spspec]="spQuery.spspec = $event"
           @update:spQuery[matno]="spQuery.matno = $event"
           @update:spQuery[spunit]="spQuery.spunit = $event"
+          @update:spQuery[spkindname]="spQuery.spkindname = $event"
           :spFiltered="spFiltered"
           @handleInputSpQuery="
             handleInputSpQuery
@@ -185,7 +187,7 @@
                     :append-inner-icon="
                       mode !== 'view' ? 'mdi-dots-horizontal-circle' : null
                     "
-                    @click:append-inner="openScgcdDialog()"
+                    @click:append-inner="form.kind === '包材領料' ? null : openScgcdDialog()"
                   ></v-text-field>
                 </td>
                 <td
@@ -200,9 +202,7 @@
                     :append-inner-icon="
                       mode !== 'view' ? 'mdi-dots-horizontal-circle' : null
                     "
-                    @click:append-inner="
-                      openScgcdDialog(item['header.clllditm.gcdno'])
-                    "
+                    @click:append-inner="item['header.clllditm.gcdno'] === '' ? openSpDialog(item) : openScgcdDialog(item['header.clllditm.gcdno'])"
                   ></v-text-field>
                 </td>
                 <td
@@ -323,7 +323,7 @@
           <v-btn
             class="plus-button"
             color="primary"
-            @click="openScgcdDialog()"
+            @click="form.kind === '包材領料' ? openSpDialog() : openScgcdDialog()"
             :disabled="!isFormComplete || isAnyFieldInvalid"
             >+</v-btn
           >
@@ -420,13 +420,14 @@ const selectScgcd = (item) => {
   tempItem["header.clllditm.cbprice"] = 0;
   tempItem["header.NA.pay"] = 0;
   tempItem["header.clllditm.note"] = "";
+  tempItem["NA.sp.clkind"] = item["NA.sp.clkind"];
   console.log("選擇的工令單資料：", tempItem);
   results.value.push(tempItem); // 新增一行
 
   isScgcdDialogVisible.value = false; // 關閉工令單物控向導的小視窗
 };
 
-// 材料的小視窗的狀態和方法, 應該可以放到composables
+// 材料的小視窗的狀態和方法, 應該可以放到composables?
 const isSpDialogVisible = ref(false); // 材料的小視窗的顯示狀態
 const spQuery = reactive({
   spno: "",
@@ -437,8 +438,8 @@ const spQuery = reactive({
 }); // 材料查詢條件
 const sp = ref([]); // 材料查詢結果
 const spFiltered = ref([]); // 過濾過的材料查詢結果
-
-const  openSpDialog = async (item)  => {
+let selecrRow = null; // 用來儲存選取的行, 直接點選表格中的材料編碼時使用
+const  openSpDialog = async (item = null)  => {
   // 打開材料查詢介面
   selecrRow = item; // 直接點選表格中的材料編碼時，儲存選取的行
 
@@ -447,20 +448,18 @@ const  openSpDialog = async (item)  => {
   spQuery.spspec = "";
   spQuery.matno = "";
   spQuery.spunit = "";
-  spQuery.spkindname = spkindname.value;
+  spQuery.spkindname = "原材料";
   
   // 調用訂單查詢
-  if (!form.supplyno) {
-    console.error("供方編碼為空");
-  } else {
-    const params = {
-      spkindno: spkindno.value,
-      supplyno: form.supplyno,
-    };
-    sp.value = await utils.fetchData("sp.php", params);
-    console.log("材料查詢結果：", sp.value);
-  }
+  const params = {
+    spkindno: -1, // -1 代表查詢所有材料
+    supplyno: "",
+  };
+  sp.value = await utils.fetchData("sp.php", params);
+  //console.log("材料查詢結果：", sp.value);
+  
   spFiltered.value = sp.value; // 初始化材料列表
+  handleInputSpQuery(); // 處理材料查詢，過濾材料列表
   isSpDialogVisible.value = true; // 打開材料查詢介面
 }
 const handleInputSpQuery = () => {
@@ -470,7 +469,8 @@ const handleInputSpQuery = () => {
     spQuery.spno.trim() === "" &&
     spQuery.spspec.trim() === "" &&
     spQuery.matno.trim() === "" &&
-    spQuery.spunit.trim() === ""
+    spQuery.spunit.trim() === "" && 
+    spQuery.spkindname.trim() === ""
   ) {
     spFiltered.value = sp.value;
   } else {
@@ -495,59 +495,51 @@ const handleInputSpQuery = () => {
           (item["header.sp.spunit"] &&
             item["header.sp.spunit"]
               .toUpperCase()
-              .includes(spQuery.spunit.toUpperCase())))
+              .includes(spQuery.spunit.toUpperCase()))) && 
+        (spQuery.spkindname.trim() === "" ||
+          (item["NA.spkind.spkindname"] &&
+            item["NA.spkind.spkindname"]
+              .toUpperCase()
+              .includes(spQuery.spkindname.toUpperCase())))
     );
   }
-  console.log("spFiltered:", spFiltered.value);
+  //console.log("spFiltered:", spFiltered.value);
 };
 const selectSp = async (item) => {
   // 選取材料
   console.log("選取的材料：", item);
-  return; // 未完成
-  
+
   let tempItem = {};
-  tempItem["header.cldhditm.spno"] = item["header.sp.spno"]; // 材料編碼
-  tempItem["header.sp.spspec"] = item["header.sp.spspec"]; // 規格
-  tempItem["header.sp.spcd"] = item["header.sp.spcd"]; // 產地
-  tempItem["header.sp.spunit"] = item["header.sp.spunit"]; // 單位
-  tempItem["header.cldhditm.payno"] = item.payno; // 幣別
-  tempItem.clkind = item.clkind; // 材料類別(不可見)
-  tempItem.dz = item.dz; // 單重(不可見)
-  // 單價
-  if (spkindno.value === 3) {
-    if (item.clkind === '卷料') {
-      console.log("卷料價格");
-      if (item.pricekg1 > 0 || item.pricekg2 > 0) {
-        tempItem["header.cldhditm.price"] = "";
-      } else {
-        tempItem["header.cldhditm.price"] = item.pricekg; 
-      }
-    } else {
-      if (item.price1 > 0 || item.price2 > 0) {
-        tempItem["header.cldhditm.price"] = "";
-      } else {
-        tempItem["header.cldhditm.price"] = item.price;
-      }
-    }
-  } else {
-    tempItem["header.cldhditm.price"] = item.price;
-  }
+  tempItem["header.clllditm.id"] = ++idCurrent.value;
+  tempItem["header.clllditm.gcdno"] = "";
+  tempItem["header.clllditm.spno"] = item["header.sp.spno"];
+  tempItem["header.sp.splk"] = item["header.sp.splk"];
+  tempItem["header.sp.spspec"] = item["header.sp.spspec"];
+  tempItem["header.sp.spunit"] = item["header.sp.spunit"];
+  tempItem["header.clllditm.kcpcs"] = item["NA.sp.pcs"];
+  tempItem["header.clllditm.kcpcsnx"] = item["NA.sp.pcsnx"];
+  tempItem["header.clllditm.yfpcs"] = 0;
+  tempItem["header.clllditm.sqpcs"] = 0;
+  tempItem["header.clllditm.pcs"] = 0;
+  tempItem["header.clllditm.pcsnx"] = 0;
+  tempItem["header.clllditm.cbprice"] = 0;
+  tempItem["header.NA.pay"] = 0;
+  tempItem["header.clllditm.note"] = "";
+  tempItem["NA.sp.clkind"] = item["NA.sp.clkind"];
+  console.log("選擇的工令單資料：", tempItem);
+
   if (selecrRow === null) {
-    // 新增一行
-    tempItem["NA.cldhditm.id"] = ++idCurrent.value; // 新增一行的 id
-    tempItem["header.cldhditm.danid"] = `${form.danno}_${idCurrent.value}`; // 訂單號碼
     results.value.push(tempItem); // 新增一行
   } else {
-    // 重選材料編碼，並替換相關的欄位
-    Object.keys(tempItem).forEach(key => {
-      selecrRow[key] = tempItem[key];
-    });
-    console.log("替代的行：", selecrRow);
+    // 如果是直接點選表格中的材料編碼，則更新該行
+    console.log("更新選取的行：", selecrRow);
+    Object.assign(selecrRow, tempItem);
+    selecrRow = null;
   }
-  console.log("tempItem:", tempItem);
+
   isSpDialogVisible.value = false; // 關閉材料查詢視窗
-  await nextTick(); // 等待DOM更新後，將焦點設置到新添加的行
-  focusNextInvalidField(tempItem); // 將焦點移到下一個未填寫的欄位
+  //await nextTick(); // 等待DOM更新後，將焦點設置到新添加的行
+  //focusNextInvalidField(tempItem); // 將焦點移到下一個未填寫的欄位
 };
 
 const results = ref([]); // 查詢結果(表格的內容)
@@ -566,15 +558,6 @@ const reset = () => {
   results.value = [];
   idLastInDB.value = "0"; // 重置最後一筆已儲存的row的 id
   idCurrent.value = 0; // 重置目前最新的一筆row的 id
-
-  Object.keys(form).forEach((key) => {
-    formPreviousValues[key] = form[key];
-  }); // 紀錄form欄位的值
-
-  resultsPreviousValues = {};
-  results.value.forEach((item) => {
-    resultsPreviousValues[item["NA.clllditm.id"]] = { ...item };
-  }); // 紀錄results的值
 };
 
 const orderInDBNum = ref(0); // 原本的行數，用來判斷是不是只剩一個row，是的話會在刪除此row後刪除整張收貨單
@@ -622,7 +605,7 @@ const columnsForSum = ref([
   "header.clllditm.sqpcs",
   "header.clllditm.pcs",
   "header.clllditm.pcsnx",
-  "header.clllditm.pay",
+  "header.NA.pay",
 ]); // 需要加總的欄位名稱
 
 const displayHeaders = computed(() => {
@@ -669,7 +652,7 @@ const initializeData = async () => {
     return idA.localeCompare(idB, "zh-Hant", { numeric: true });
   });
 
-  idLastInDB.value = data["clllditm"].at(-1)["NA.clllditm.id"]; // 取得DB最後一筆的 id
+  idLastInDB.value = data["clllditm"].at(-1)["header.clllditm.id"]; // 取得DB最後一筆的 id
   console.log("最後一筆的 id：", idLastInDB.value);
   idCurrent.value = idLastInDB.value; // 設置目前的 id 為DB最後一筆的 id
 
@@ -684,15 +667,6 @@ const initializeData = async () => {
   orderInDBNum.value = results.value.length; // 取得原本的行數
 
   console.log("results:", results.value);
-
-  Object.keys(form).forEach((key) => {
-    formPreviousValues[key] = form[key];
-  }); // 紀錄form欄位的值
-
-  resultsPreviousValues = {};
-  results.value.forEach((item) => {
-    resultsPreviousValues[item["NA.clllditm.id"]] = { ...item };
-  }); // 紀錄results的值
 
   await checkButtonFlags(); // 檢查按鈕狀態
 };
@@ -743,35 +717,38 @@ const save = async () => {
     };
     await router.push(url); // 移動到新增的訂單的頁面
   } else if (mode.value === "edit") {
-    return; // 未完成
     // 保存新增的row到資料庫
     const itemsToBeAdded = results.value.filter(
-      (item) => item["NA.cldhditm.id"] > idLastInDB.value
+      (item) => item["header.clllditm.id"] > idLastInDB.value
     ); // 表格中新增的資料
     const itm = itemsToBeAdded.map((item) => ({
-      id: item["NA.cldhditm.id"],
-      spno: item["header.cldhditm.spno"],
-      pcs: item["header.cldhditm.pcs"],
-      payno: item["header.cldhditm.payno"],
-      price: item["header.cldhditm.price"],
-      gdate: item["header.cldhditm.gdate"],
-      note: item["header.cldhditm.note"],
+      id: item["header.clllditm.id"],
+      spno: item["header.clllditm.spno"],
+      pcs: item["header.clllditm.pcs"],
+      kcpcs: item["header.clllditm.kcpcs"],
+      gcdno: item["header.clllditm.gcdno"],
+      note: item["header.clllditm.note"],
+      cbprice: item["header.clllditm.cbprice"],
+      yfpcs: item["header.clllditm.yfpcs"],
+      sqpcs: item["header.clllditm.sqpcs"],
+      pcsnx: item["header.clllditm.pcsnx"],
+      kcpcsnx: item["header.clllditm.kcpcsnx"],
     }));
     const params = {
       danno: form.danno,
+      kind: form.kind,
       itm: itm,
     };
-    const data = await utils.fetchData("cldhditmUpdateNewRow.php", params); // 透過api更新資料
+    const data = await utils.fetchData("clllditmUpdateNewRow.php", params); // 透過api更新資料
     console.log("更新資料結果：", data);
     alert("存檔完成");
   }
   await setMode("view"); // 切換到查看模式
 };
 
-let formPreviousValues = {}; // 紀錄form欄位的先前值
 const updateMst = async (field) => {
-  // 更新cldhdmst的欄位
-
+  // 更新cllldmst的欄位, 應該改個名字?
+  console.log("更新欄位:", field.column);
   if (field.column === "ddate") {
     let today = "";
     [today] = utils.getCurrentDateTime();
@@ -783,26 +760,19 @@ const updateMst = async (field) => {
   }
 
   if (mode.value === "edit") {
-    if (confirm(`您確定要更新${field.name}嗎?`)) {
-      console.log("更新", field.column, "欄位");
-      console.log("先前值:", formPreviousValues[field.column]);
-      console.log("更改為:", form[field.column]);
+    if (confirm(`您確定要更新${field.name}為${form[field.column]}嗎?`)) {
       const params = {
         danno: form.danno,
         column: field.column,
         value: form[field.column],
       };
-      const data = await utils.fetchData("cldhdmstUpdate.php", params); // 透過api更新資料
+      const data = await utils.fetchData("cllldmstUpdate.php", params); // 透過api更新資料
       console.log("更新結果:", data);
-      formPreviousValues[field.column] = form[field.column]; // 更新先前值
       alert("更新完成");
-    } else {
-      form[field.column] = formPreviousValues[field.column]; // 恢復到先前的值
     }
   }
 };
 
-let resultsPreviousValues = {}; // 紀錄results欄位的先前值
 const updateItm = async (item, key) => {
   // 表格的欄位變動
 
@@ -813,10 +783,30 @@ const updateItm = async (item, key) => {
       if (
         parseFloat(item["header.clllditm.pcs"]) +
           parseFloat(item["header.clllditm.pcsnx"]) >
-        parseFloat(item["header.clllditm.yfpcs"])
+        parseFloat(item["header.clllditm.yfpcs"]) &&
+        item["NA.sp.clkind"] !== "卷料"
       ) {
         alert("實發數不能大於應發數");
         item["header.clllditm.pcs"] = 0;
+        item["header.clllditm.pcsnx"] = 0;
+        return;
+      }
+    }
+    else if (form.kind === "包材領料") {
+      // 包材領料
+      // 實發數不能超過對應的庫存數, 但是其他類別沒有這個限制
+      if (
+        parseFloat(item["header.clllditm.pcs"])  >
+        parseFloat(item["header.clllditm.kcpcs"])
+      ) {
+        alert(`保稅庫存數為:${item["header.clllditm.kcpcs"]}\n請查清楚!`);
+        item["header.clllditm.pcs"] = 0;
+        return;
+      } else if (
+        parseFloat(item["header.clllditm.pcsnx"]) >
+        parseFloat(item["header.clllditm.kcpcsnx"])
+      ) {
+        alert(`內銷庫存數為:${item["header.clllditm.kcpcsnx"]}\n請查清楚!`);
         item["header.clllditm.pcsnx"] = 0;
         return;
       }
@@ -835,7 +825,7 @@ const updateItm = async (item, key) => {
     // 更新資料庫
 
     // 新的欄位先跳過
-    if (item["NA.clllditm.id"] > idLastInDB.value) {
+    if (item["header.clllditm.id"] > idLastInDB.value) {
       console.log("需要按存檔按鈕");
       return;
     }
@@ -846,44 +836,35 @@ const updateItm = async (item, key) => {
       return;
     }
 
-    console.log("先前值:", item[key]);
-    console.log("先前值:", resultsPreviousValues[1]);
-    if (confirm(`您確定要更新${labels.value[key].name}嗎?`)) {
+    if (confirm(`您確定要更新${labels.value[key].name}為${item[key]}嗎?`)) {
       const params = {
         danno: form.danno,
-        id: item["NA.cldhditm.id"],
+        id: item["header.clllditm.id"],
         column: labels.value[key].column,
         value: item[key],
       };
-      const data = await utils.fetchData("cldhditmUpdate.php", params); // 透過api更新資料
+      const data = await utils.fetchData("clllditmUpdate.php", params); // 透過api更新資料
       console.log("更新結果:", data);
-      resultsPreviousValues[item["NA.cldhditm.id"]][key] = item[key]; // 更新先前值
       alert("更新完成");
-    } else {
-      item[key] = resultsPreviousValues[item["NA.cldhditm.id"]][key]; // 恢復到先前的值
     }
   }
 };
 
 const deleteRow = async (item) => {
   // 刪行
-  if (item["NA.cldhditm.id"] <= idLastInDB.value) {
-    if (item["header.cldhditm.getpcs"] > 0) {
-      alert("此項已開始入倉, 不能刪行!");
-      return;
-    }
+  if (item["header.clllditm.id"] <= idLastInDB.value) {
     const confirmMessage =
       orderInDBNum.value === 1 ? "您確定要刪除整張單據嗎?" : "您確定要刪除?";
     if (confirm(confirmMessage)) {
       const params = {
         danno: form.danno,
-        id: item["NA.cldhditm.id"],
+        id: item["header.clllditm.id"],
       };
-      const data = await utils.fetchData("cldhdDelete.php", params); // 透過api刪除資料
+      const data = await utils.fetchData("cllldDelete.php", params); // 透過api刪除資料
       console.log("刪除資料結果：", data);
       alert("刪除完成");
       const index = results.value.findIndex(
-        (result) => result["NA.cldhditm.id"] === item["NA.cldhditm.id"]
+        (result) => result["header.clllditm.id"] === item["header.clllditm.id"]
       );
       if (index !== -1) {
         results.value.splice(index, 1); // 從 results 中移除
@@ -912,20 +893,14 @@ const deleteRow = async (item) => {
 const deleteOrder = async () => {
   // 廢單
   if (form.audit === null || form.audit === "") {
-    for (let item of results.value) {
-      if (item["header.cldhditm.getpcs"] > 0) {
-        alert("此單已有入庫, 不能廢單!");
-        return;
-      }
-    }
     if (confirm("您確定要刪除整張單據嗎?")) {
       try {
         for (let item of results.value) {
           const params = {
             danno: form.danno,
-            id: item["NA.cldhditm.id"],
+            id: item["header.clllditm.id"],
           };
-          const data = await utils.fetchData("cldhdDelete.php", params); // 透過api刪除資料
+          const data = await utils.fetchData("cllldDelete.php", params); // 透過api刪除資料
           console.log("刪除資料結果：", data);
         }
         alert("刪除完成");

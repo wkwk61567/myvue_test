@@ -124,6 +124,7 @@
           @update:spQuery[spspec]="spQuery.spspec = $event"
           @update:spQuery[matno]="spQuery.matno = $event"
           @update:spQuery[spunit]="spQuery.spunit = $event"
+          @update:spQuery[spkindname]="spQuery.spkindname = $event"
           :spFiltered="spFiltered"
           @handleInputSpQuery="
             handleInputSpQuery

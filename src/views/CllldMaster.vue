@@ -308,17 +308,12 @@ const deleteOrder = async () => {
       danno: selectedRow.value["header.cllldmst.danno"],
     }); //透過api獲取該筆單據的明細資料
     console.log("明細資料:", itmData["clllditm"]);
-    for (let item of itmData["clllditm"]) {
-      if (item["header.clllditm.getpcs"] > 0) {
-        alert("此單已有入庫, 不能廢單!");
-        return;
-      }
-    }
     if (confirm("您確定要刪除整張單據嗎?")) {
       for (let item of itmData["clllditm"]) {
         const params = {
           danno: selectedRow.value["header.cllldmst.danno"],
-          id: item["NA.clllditm.id"],
+          kind: item["header.clllditm.kind"],
+          id: item["header.clllditm.id"],
         };
         const data = await utils.fetchData("cllldDelete.php", params); // 透過api刪除資料
         console.log("刪除資料結果：", data);
@@ -382,8 +377,6 @@ const exportExcel = () => {
 
 onMounted(async () => {
   checkButtonFlags();
-  isEditDisabled.value = true; // 編輯按鈕臨時禁用
-  isDeleteOrderDisabled.value = true; // 刪除按鈕臨時禁用
 });
 </script>
 
