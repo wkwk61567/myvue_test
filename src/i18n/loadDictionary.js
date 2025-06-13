@@ -47,6 +47,9 @@ export async function loadDictionary() {
           componentType: dictionaryDataRow.componentType || null,
           cols: dictionaryDataRow.cols || null,
           isSticky: dictionaryDataRow.isSticky || null,
+          validationRule: dictionaryDataRow.validationRule || null,
+          validationGroup: dictionaryDataRow.validationGroup || null,
+          dataType: dictionaryDataRow.dataType || null,
         };
       });
     }

@@ -74,7 +74,7 @@
               <tr
                 v-bind="hoverProps"
                 @dblclick="$emit('selectGclprice', item)"
-                :style="isHovering ? { backgroundColor: '#f5f5f5' } : {}"
+                :style="isHovering ? { backgroundColor: HOVER_COLOR } : {}"
               >
                 <template v-for="header in headers" :key="header.key">
                   <td v-if="labels[header.key].componentType === 'checkbox'">
@@ -83,7 +83,7 @@
                       disabled
                     ></v-checkbox>
                   </td>
-                  <td v-else >{{ item[header.key] }}</td>
+                  <td v-else :class="labels[header.key]?.dataType === 'number' ? 'number-td' : ''" >{{ item[header.key] }}</td>
                 </template>
               </tr>
             </v-hover>
@@ -96,6 +96,7 @@
 
 <script setup>
 import { inject } from "vue";
+import { HOVER_COLOR } from "@/config.js";
 import { useI18nHeadersLabels } from "@/composables/useI18nHeadersLabels.js";
 
 // 接收selectedLanguage 作為目前顯示的語言

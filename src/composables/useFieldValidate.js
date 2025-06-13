@@ -1,18 +1,22 @@
-// 用來驗證欄位是否已填寫
-// 由於涉及到多個欄位, 如果這裡用focus很容易導致無窮迴圈
+// 用來驗證欄位是否已填寫正確
 
 import { ref, computed, watch } from "vue";
 
-export function useFieldValidate(
-  results,
-  fieldsRequired,
-  numberRequired,
-  fieldRefs
-) {
-  // 新增的聚焦機制狀態
+export function useFieldValidate(results, form, formRows, fieldRefs, labels) {
+  // 聚焦機制狀態
   const focusedItem = ref(null); // 用來存儲當前聚焦的行
   const focusedField = ref(null); // 用來存儲當前聚焦的欄位
   const isFocusMechanismActive = ref(false); // 用來標記聚焦機制是否啟動
+
+  const fieldsRequired = computed(() => {
+    const fieldsArray = [];
+    for (const key in labels) {
+      if (key.startsWith("header.") && labels[key].isAllowBlank !== true) {
+        fieldsArray.push(key);
+      }
+    }
+    return fieldsArray;
+  }); // 表格中的必填欄位
 
   function getElementRef(item, field) {
     const refName = `field_${item["NA.cldhditm.id"]}_${field}`;
@@ -29,29 +33,112 @@ export function useFieldValidate(
     }
   }
 
-  function isFieldValid(item, field) {
+  function isFieldValid(fieldValue, field) {
     // 驗證某個欄位是否已填有效值
-    if (
-      item[field] === undefined ||
-      item[field] === null ||
-      item[field] === "" ||
-      (numberRequired.includes(field) && parseFloat(item[field]) === 0) // 如果是數字欄位, 則檢查是否為0
-    ) {
-      return false;
+
+    if (labels[field].validationRule === "nonEmptyString") {
+      // 如果是非空字串，則檢查是否為空
+      return (
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        fieldValue.trim() !== ""
+      );
+    } else if (labels[field].validationRule === "number") {
+      // 如果是數字，則檢查是否為有效數字
+      return (
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        !isNaN(parseFloat(fieldValue)) &&
+        isFinite(fieldValue)
+      );
+    } else if (labels[field].validationRule === "positive") {
+      // 如果是正數，則檢查是否為有效正數
+      return (
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        !isNaN(parseFloat(fieldValue)) &&
+        isFinite(fieldValue) &&
+        parseFloat(fieldValue) > 0
+      );
+    } else if (labels[field].validationRule === "atLeastOnePositive") {
+      // 檢查至少有一個欄位是正數
+      return true; // 這個驗證規則在行級別處理(isRowFieldsValid)
+      return (
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        !isNaN(parseFloat(fieldValue)) &&
+        isFinite(fieldValue) &&
+        parseFloat(fieldValue) > 0
+      );
+    } else if (labels[field].validationRule === "date") {
+      // 如果是日期，則檢查是否為有效日期
+      return (
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        fieldValue !== "" &&
+        !isNaN(Date.parse(fieldValue))
+      );
+    } else if (labels[field].validationRule === "dateNotAfterToday") {
+      // 檢查日期是否不在今天之後（只允許今天或今天之前的日期）
+      const today = new Date();
+      const inputDate = new Date(fieldValue);
+      return (
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        fieldValue !== "" &&
+        !(inputDate > today)
+      );
+    } else {
+      // 如果沒有特定的驗證規則，則默認視為有效
+      return true;
     }
-    return true;
   }
 
   function isRowFieldsValid(item) {
     // 驗證某一行需要檢查的欄位是否都已填有效值
-    return fieldsRequired.every((field) => {
-      if (field === "NA.NA.NA") {
-        // 特殊機制處理, 未完成
-        return true;
-      } else {
-        return isFieldValid(item, field);
+    if (
+      fieldsRequired.value.every((field) => {
+        return isFieldValid(item[field], field);
+      })
+    ) {
+      const groups = {};
+      for (const field in labels) {
+        if (labels[field].validationRule === "atLeastOnePositive") {
+          const groupName = labels[field].validationGroup;
+          if (!groupName) {
+            console.error(
+              `欄位 ${field} 的 validationRule 是 "atLeastOnePositive" 但缺少 validationGroup`
+            );
+            continue; // 跳過沒有分組的欄位
+          }
+          if (!groups[groupName]) {
+            groups[groupName] = [];
+          }
+          groups[groupName].push(field);
+        }
       }
-    });
+
+      // 檢查每個分組是否至少有一個正數
+      for (const groupName in groups) {
+        const fieldsInGroup = groups[groupName];
+        const isGroupValid = fieldsInGroup.some((field) => {
+          const fieldValue = item[field];
+          return (
+            fieldValue !== undefined &&
+            fieldValue !== null &&
+            !isNaN(parseFloat(fieldValue)) &&
+            isFinite(fieldValue) &&
+            parseFloat(fieldValue) > 0
+          );
+        });
+        if (!isGroupValid) {
+          return false; // 如果任何一個分組無效，則整行無效
+        }
+      }
+      return true; // 所有基本驗證通過，且所有 "atLeastOnePositive" 分組都有效
+    } else {
+      return false;
+    }
   }
 
   const isAnyFieldInvalid = computed(() => {
@@ -66,9 +153,9 @@ export function useFieldValidate(
     const currentItemIndex = results.value.indexOf(item);
     if (currentItemIndex !== -1) {
       // 檢查當前行中的欄位
-      for (let i = 0; i < fieldsRequired.length; i++) {
-        const nextField = fieldsRequired[i];
-        if (!isFieldValid(item, nextField)) {
+      for (let i = 0; i < fieldsRequired.value.length; i++) {
+        const nextField = fieldsRequired.value[i];
+        if (!isFieldValid(item[nextField], nextField)) {
           // 找到了當前行中的下一個無效欄位
           const elementRef = getElementRef(item, nextField);
           if (elementRef) {
@@ -88,10 +175,10 @@ export function useFieldValidate(
       ) {
         const nextRow = results.value[rowIndex];
 
-        for (let i = 0; i < fieldsRequired.length; i++) {
-          const field = fieldsRequired[i];
+        for (let i = 0; i < fieldsRequired.value.length; i++) {
+          const field = fieldsRequired.value[i];
 
-          if (!isFieldValid(nextRow, field)) {
+          if (!isFieldValid(nextRow[field], field)) {
             // 找到了後續行中的無效欄位
             const elementRef = getElementRef(nextRow, field);
 
@@ -138,7 +225,7 @@ export function useFieldValidate(
 
   function handleFocus(item, field, elementRef) {
     // 處理欄位獲得焦點事件
-    if (!isFieldValid(item, field)) {
+    if (!isFieldValid(item[field], field)) {
       activateFocusMechanism(item, field, elementRef);
     }
   }
@@ -146,10 +233,11 @@ export function useFieldValidate(
   function handleBlur(item, field, elementRef) {
     // 處理欄位失去焦點事件
 
-    // 填完之後可以反悔，回去填原本的欄位(必須在fieldsRequired的順序更前面)
+    // 填完之後可以反悔，回去填原本的欄位(必須在fieldsRequired.value的順序更前面)
     if (
       isFocusMechanismActive.value &&
-      fieldsRequired.indexOf(field) < fieldsRequired.indexOf(focusedField.value)
+      fieldsRequired.value.indexOf(field) <
+        fieldsRequired.value.indexOf(focusedField.value)
     ) {
       console.log(`欄位 ${field} 反悔`);
       deactivateFocusMechanism();
@@ -157,7 +245,7 @@ export function useFieldValidate(
       return;
     }
 
-    if (!isFocusMechanismActive.value && !isFieldValid(item, field)) {
+    if (!isFocusMechanismActive.value && !isFieldValid(item[field], field)) {
       activateFocusMechanism(item, field, elementRef);
     }
 
@@ -166,7 +254,7 @@ export function useFieldValidate(
       focusedItem.value === item &&
       focusedField.value === field
     ) {
-      if (isFieldValid(item, field)) {
+      if (isFieldValid(item[field], field)) {
         // 欄位有效，解除聚焦機制
         //deactivateFocusMechanism();
 
@@ -209,6 +297,38 @@ export function useFieldValidate(
     { deep: true }
   );
 
+  function isFormError(mode, field, value) {
+    // 檢查表單欄位是否要顯示錯誤(view模式下不檢查)
+    return (
+      mode !== "view" &&
+      !(
+        field.inputType === "fixed" ||
+        (field.inputType === "optional" &&
+          !(
+            field.componentType === "icon-text-field" ||
+            field.componentType === "select"
+          ))
+      ) &&
+      !field.isAllowBlank &&
+      (value === null || value === "")
+    );
+  }
+
+  const isFormComplete = computed(() => {
+    // 檢查form的欄位是否有空值
+    for (let row of formRows) {
+      for (let field of row) {
+        if (
+          !field.isAllowBlank &&
+          (form[field.column] === null || form[field.column] === "")
+        ) {
+          return false; // 有空值，返回false
+        }
+      }
+    }
+    return true; // 所有欄位都有值，返回true
+  });
+
   return {
     isFieldValid,
     isRowFieldsValid,
@@ -218,5 +338,7 @@ export function useFieldValidate(
     isFieldDisabled,
     focusNextInvalidField,
     isFocusMechanismActive,
+    isFormError,
+    isFormComplete,
   };
 }

@@ -81,6 +81,13 @@
   font-size: 12px;
 }
 
+/* 數字靠右 */
+.number-td {
+  text-align: right !important;
+}
+.number-field :deep(.v-field__input) {
+  text-align: right !important;
+}
 
 .container {
   display: flex;

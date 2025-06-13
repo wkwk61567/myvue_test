@@ -10,19 +10,20 @@ const dictionary = {
   },
 };
 
-
 export const API_BASE_URL = "http://" + window.location.hostname;
-export const INPUT_COLOR = {
-  inputable: "#ffffff",
-  optional: "#dddddd",
-  fixed: "#aaaaaa",
-  unused: "#888888",
-};
+export const INPUT_COLORS = {
+  inputable: "#ffffff", // 可自由輸入
+  optional: "#dddddd", // 間接選擇
+  fixed: "#aaaaaa", // 不可修改
+  unused: "#888888", // 未使用的欄位
+}; // 用於欄位的顏色
+export const HOVER_COLOR = "#f5f5f5"; // 滑鼠懸停時的背景色
+export const SELECTED_COLOR = "#d3d3d3"; // 選取的row的背景色
 export const LANGUAGE_OPTIONS = [
   { title: "繁體中文", key: "zh-TW" },
   { title: "English", key: "en" },
   { title: "Tiếng Việt", key: "vi" },
-]; // languageOptions
+]; // 目前支援三種語言
 export default dictionary
 
 // 從 localStorage 讀取語言設定，如果沒有則使用預設語言

@@ -1,7 +1,7 @@
 import { ref, reactive, nextTick } from "vue";
 import * as utils from "@/utils/utils.js";
 
-export function useOrderDialog(results, idCurrent, focusNextInvalidField) {
+export function useOrderDialog(results, idCurrent) {
   const isCallOrderDialogVisible = ref(false); // 調用訂單介面(CallOrderDialog)是否顯示
   const orderQuery = reactive({ danno: "", spno: "", spspec: "" }); // 用來存儲調用訂單介面(CallOrderDialog)的訂單查詢條件
   const orders = ref([]); // 用來存儲從API獲取的訂單資料 也就是調用訂單介面(CallOrderDialog)裡的訂單列表
@@ -88,7 +88,7 @@ export function useOrderDialog(results, idCurrent, focusNextInvalidField) {
     console.log("orderFiltered:", orderFiltered.value);
   }
 
-  async function selectOrder(order, ddate) {
+  async function selectOrder(order, ddate, focusNextInvalidField) {
     // 暫時儲存訂單到下方的表格
     // order是調用訂單中雙擊選中的item
 

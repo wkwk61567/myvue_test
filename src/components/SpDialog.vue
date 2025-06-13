@@ -69,10 +69,10 @@
               <tr
                 v-bind="hoverProps"
                 @dblclick="$emit('selectSp', item)"
-                :style="isHovering ? { backgroundColor: '#f5f5f5' } : {}"
+                :style="isHovering ? { backgroundColor: HOVER_COLOR } : {}"
               >
                 <template v-for="header in headers" :key="header.key">
-                  <td>{{ item[header.key] }}</td>
+                  <td :class="labels[header.key]?.dataType === 'number' ? 'number-td' : ''">{{ item[header.key] }}</td>
                 </template>
               </tr>
             </v-hover>
@@ -85,6 +85,7 @@
 
 <script setup>
 import { ref, computed, inject } from "vue";
+import { HOVER_COLOR } from "@/config.js";
 import * as utils from "@/utils/utils.js";
 import { useI18nHeadersLabels } from "@/composables/useI18nHeadersLabels.js";
 
